@@ -1,26 +1,58 @@
-const express = require("express");
-const mongoose = require("mongoose");
-const cors = require("cors");
-const dotenv = require("dotenv");
-
-
+import express from "express";
+import cors from "cors";
+import { toNodeHandler, fromNodeHeaders } from "better-auth/node";
+import dotenv from "dotenv";
 dotenv.config();
+
+import connectDB from "./config/database.js";
+import { auth } from "./lib/auth.js";
+
 const app = express();
 
-app.use(cors());
+const PORT = process.env.PORT || 5000;
+
+await connectDB();
+
+app.use(
+  cors({
+    origin: "http://localhost:5173",
+    credentials: true,
+  })
+);
+
+// Better Auth handler MUST come before express.json()
+app.all("/api/auth/*splat", toNodeHandler(auth));
+
 app.use(express.json());
 
 app.get("/", (req, res) => {
-  res.json({ message: "Hello, World!" });
+  res.json({
+    message: "API is running",
+  });
 });
 
-mongoose.connect(process.env.DATABASE_URL)
-    .then(() => {
-        console.log('Database connected successfully');
-        app.listen(process.env.PORT, () => {
-            console.log(`Server is running on http://localhost:${process.env.PORT}`);
-        });
-    })
-    .catch((error) => {
-        console.log('Error:', error.message);
+app.get("/api/me", async (req, res) => {
+  try {
+    const session = await auth.api.getSession({
+      headers: fromNodeHeaders(req.headers),
     });
+
+    if (!session) {
+      return res.status(401).json({
+        message: "Unauthorized",
+      });
+    }
+
+    res.json(session);
+  } catch (error) {
+    console.error(error);
+
+    res.status(500).json({
+      message: "Internal server error",
+    });
+  }
+});
+
+app.listen(PORT, () => {
+  console.log(`Server running on http://localhost:${PORT}`);
+});
