@@ -4,6 +4,8 @@ import { toNodeHandler, fromNodeHeaders } from "better-auth/node";
 import dotenv from "dotenv";
 dotenv.config();
 
+import authRoutes from "./routes/auth.routes.js";
+
 import connectDB from "./config/database.js";
 import { auth } from "./lib/auth.js";
 
@@ -25,32 +27,12 @@ app.all("/api/auth/*splat", toNodeHandler(auth));
 
 app.use(express.json());
 
+app.use("/api", authRoutes);
+
 app.get("/", (req, res) => {
   res.json({
     message: "API is running",
   });
-});
-
-app.get("/api/me", async (req, res) => {
-  try {
-    const session = await auth.api.getSession({
-      headers: fromNodeHeaders(req.headers),
-    });
-
-    if (!session) {
-      return res.status(401).json({
-        message: "Unauthorized",
-      });
-    }
-
-    res.json(session);
-  } catch (error) {
-    console.error(error);
-
-    res.status(500).json({
-      message: "Internal server error",
-    });
-  }
 });
 
 app.listen(PORT, () => {
